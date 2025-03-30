@@ -1,15 +1,15 @@
+package mp1;
+
 import java.io.*;
 import java.util.*;
 
 public abstract class ObjectPlus implements Serializable {
-    @Serial
-    private static final long serialVersionUID = 1L;
 
     private static Map<Class<? extends ObjectPlus>, List<ObjectPlus>> extents = new HashMap<>();
 
 
     public ObjectPlus() {
-        List<ObjectPlus> extent = new ArrayList<>();
+        List<ObjectPlus> extent;
 
         Class<? extends ObjectPlus> type = this.getClass();
         if (extents.containsKey(type)) {
@@ -21,17 +21,21 @@ public abstract class ObjectPlus implements Serializable {
         extent.add(this);
     }
 
-    public static void writeExtents(ObjectOutputStream stream) throws IOException {
-        stream.writeObject(extents);
+    public static void writeExtents(String filename) throws IOException {
+        ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(filename + ".bin"));
+        out.writeObject(extents);
+
     }
 
-    public static void readExtents(ObjectInputStream stream) throws IOException, ClassNotFoundException {
-        extents = (HashMap) stream.readObject();
+    public static void readExtents(String filename) throws IOException, ClassNotFoundException {
+        ObjectInputStream in = new ObjectInputStream(new FileInputStream(filename + ".bin"));
+        extents = (HashMap) in.readObject();
+
     }
 
-    public static <T>Iterable<T> getExtent(Class<T> type) throws ClassNotFoundException {
+    public static <T> Iterable<T> getExtent(Class<T> type) throws ClassNotFoundException {
         if (extents.containsKey(type)) {
-            return (Iterable<T>)  extents.get(type);
+            return (Iterable<T>) extents.get(type);
         }
 
         throw new ClassNotFoundException(
@@ -40,19 +44,25 @@ public abstract class ObjectPlus implements Serializable {
                         extents.keySet()));
     }
 
-    public static void showExtent(Class type) throws Exception {
+    public static void showExtent(Class<? extends ObjectPlus> type) throws Exception {
         List<ObjectPlus> extent = null;
 
-        if(extents.containsKey(type)) {
+        if (extents.containsKey(type)) {
             extent = extents.get(type);
         } else {
             throw new ClassNotFoundException("Unknown class: " + type);
         }
 
-        System.out.printf("Extent of class \"%s\": %n" ,type.getSimpleName());
+        System.out.printf("Extent of class \"%s\": %n", type.getSimpleName());
 
         for (Object obj : extent) {
             System.out.println(obj);
+        }
+    }
+
+    public void removeFromExtent(ObjectPlus obj) {
+        if (extents.containsKey(obj.getClass())) {
+            extents.get(obj.getClass()).remove(obj);
         }
     }
 }
