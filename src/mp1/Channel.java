@@ -24,7 +24,7 @@ public class Channel extends ObjectPlus {
 
     public void addMessage(Message message) {
         if (messages == null) {
-            throw new NullPointerException("mp1.Message cannot be null.");
+            throw new NullPointerException("Message cannot be null.");
         }
         messages.add(message);
     }

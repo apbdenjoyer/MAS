@@ -30,14 +30,17 @@ public class Server extends ObjectPlus {
         return channels;
     }
 
-    public void addChannel(String channelName) {
+    public void addChannel(String channelName) throws ServerAppException {
         if (channelName == null) {
-            throw new NullPointerException("mp1.Channel's name cannot be null.");
+            throw new IllegalArgumentException("Channel's name cannot be null. Please try something else.");
+        }
+        if (channelName.isEmpty()) {
+            throw new IllegalArgumentException("Channel's name cannot be empty. Please try something else.");
         }
 
         for (Channel c : channels) {
             if (c.getName().equals(channelName)) {
-                throw new IllegalArgumentException("mp1.Channel with this name already exists.");
+                throw new ServerAppException("Channel with this name already exists. Please try something else.");
             }
         }
 
@@ -62,28 +65,38 @@ public class Server extends ObjectPlus {
         foundChannel.setName(channelName);
     }
 
-    public void removeChannel(String channelName) {
+    public void removeChannel(String channelName) throws ServerAppException {
         if (channelName == null) {
             throw new NullPointerException("Channel's name cannot be null.");
         }
-        channels.removeIf(c -> c.getName().equals(channelName));
+
+        Channel foundChannel = null;
+        for (Channel c : channels) {
+            if (c.getName().equals(channelName)) {
+                foundChannel = c;
+            }
+        }
+        if (foundChannel == null) {
+            throw new ServerAppException(String.format("Server %s doesn't have a channel named '%s'", this.name, channelName));
+        }
+
+        channels.remove(foundChannel);
     }
 
-    public List<User> getUsersByStatus(UserStatus status) throws ClassNotFoundException {
-        List<User> users = new ArrayList<>();
-        users.add(owner);
+    public List<UserOnServer> getUsersByStatus(UserStatus status) throws ClassNotFoundException {
+        List<UserOnServer> users = new ArrayList<>();
 
         for (UserOnServer userOnServer : getExtent(UserOnServer.class)) {
             if (userOnServer.getServer().equals(this) && userOnServer.getStatus().equals(status)) {
-                users.add(userOnServer.getUser());
+                users.add(userOnServer);
             }
         }
         return users;
     }
 
-    public static Map<Server, Integer> getServersWithMoreThanNUsers(int n) throws ClassNotFoundException {
+    public static Map<Server, Integer> getServersWithNUsers(int n) throws ClassNotFoundException {
         if (n <= 0) {
-            throw new IllegalArgumentException("mp1.User count must be greater than 0.");
+            throw new IllegalArgumentException("User count must be greater than 0.");
         }
 
         Map<Server, Integer> servers = new HashMap<>();

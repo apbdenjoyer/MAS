@@ -24,12 +24,13 @@ public abstract class ObjectPlus implements Serializable {
     public static void writeExtents(String filename) throws IOException {
         ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(filename + ".bin"));
         out.writeObject(extents);
-
+        out.close();
     }
 
     public static void readExtents(String filename) throws IOException, ClassNotFoundException {
-        ObjectInputStream in = new ObjectInputStream(new FileInputStream(filename + ".bin"));
+        ObjectInputStream in = new ObjectInputStream(new FileInputStream(filename));
         extents = (HashMap) in.readObject();
+        in.close();
 
     }
 

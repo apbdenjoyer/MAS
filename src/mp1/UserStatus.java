@@ -1,6 +1,6 @@
 package mp1;
 
-enum UserStatus {
+public enum UserStatus {
     CLEAN,
     MUTED,
 }

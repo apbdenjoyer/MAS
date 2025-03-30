@@ -36,7 +36,7 @@ public class Message extends ObjectPlus {
 
     public void editMessage(String newContents) {
         if (newContents == null) {
-            throw new IllegalArgumentException("mp1.Message contents cannot be null");
+            throw new IllegalArgumentException("Message contents cannot be null");
         }
 
         if (newContents.isBlank()) {
