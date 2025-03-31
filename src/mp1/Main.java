@@ -21,14 +21,17 @@ import java.util.*;
  */
 
 public class Main {
-    private static final Scanner scanner = new Scanner(System.in);
+    private static final Scanner intScanner = new Scanner(System.in);
+    private static final Scanner stringScanner = new Scanner(System.in);
 
     public static void main(String[] args) {
         while (true) {
-            System.out.println("\n--- Main Menu ---");
+            System.out.println("\n====== Main Menu ======");
+            System.out.println("\n -- Options: --");
             System.out.println("1. Save Current Extent to File");
             System.out.println("2. Read Extent from File");
-            System.out.println("3. Go to Managing Data");
+            System.out.println("3. Go to Data Management");
+            System.out.println("4. Fill with Test Data");
             System.out.println("0. Exit");
 
             int choice = getIntInput("Choose an option: ");
@@ -43,6 +46,9 @@ public class Main {
                 case 3:
                     manageData();
                     break;
+                case 4:
+                    fillWithTestData();
+                    break;
                 case 0:
                     System.out.println("Exiting application...");
                     return;
@@ -53,11 +59,16 @@ public class Main {
     }
 
     private static void saveExtentToFile() {
-        String filename = getStringInput("Please provide a file name: ");
+        String filename = getStringInput("Please provide a file name (with or without '.bin'): ");
+
+        if (!filename.endsWith(".bin")) {
+            filename += ".bin";
+        }
+
         System.out.println("Saving extent to file...");
         try {
             ObjectPlus.writeExtents(filename);
-            System.out.printf("Extent saved to file %s.%n", filename + ".bin");
+            System.out.printf("Extent saved to file %s.%n", filename);
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -65,9 +76,13 @@ public class Main {
     }
 
     private static void readExtentFromFile() {
-        String filename = getStringInput("Please provide a file name: ");
+        String filename = getStringInput("Please provide a file name (with or without '.bin'): ");
 
-        if (filename.isEmpty() || !Files.exists(Paths.get(filename))) {
+        if (!filename.endsWith(".bin")) {
+            filename += ".bin";
+        }
+
+        if (!Files.exists(Paths.get(filename))) {
             System.out.println("File not found: " + filename);
             return;
         }
@@ -82,8 +97,11 @@ public class Main {
 
     private static void manageData() {
         while (true) {
-            System.out.println("\n--- Manage Data ---");
-            System.out.println("1. Servers (Manage Channels)");
+            System.out.println("\n====== Manage Data ======");
+            System.out.println("\n -- Options: --");
+            System.out.println("1. Servers (See servers, See servers with " +
+                    "more than n users" +
+                    " )");
             System.out.println("2. Users (User Settings, Create/Remove/Join/Leave Servers, Message in server, Manage Friend list)");
             System.out.println("0. Back to Main Menu");
             int choice = getIntInput("Choose an option: ");
@@ -104,10 +122,11 @@ public class Main {
 
     private static void handleUsersData() {
         while (true) {
-            System.out.println("\n--- Users ---");
+            System.out.println("\n====== Users ======");
+            System.out.println("\n -- Options: --");
             System.out.println("1. Select an user from list.");
             System.out.println("2. Create a new user.");
-            System.out.println("0. Back to Main Menu");
+            System.out.println("0. Go back");
 
             int choice = getIntInput("Choose an option: ");
             switch (choice) {
@@ -154,35 +173,36 @@ public class Main {
     }
 
     private static void seeUsers() {
-        List<User> users = new ArrayList<>();
+        List<User> users;
 
         while (true) {
             try {
                 users = (List<User>) ObjectPlus.getExtent(User.class);
             } catch (ClassNotFoundException e) {
-                System.out.println("No users found. Add at least one user to see them here.");
+                System.out.println("\t*No users found. Add at least one user to see them here.");
                 return;
             }
 
-            System.out.println(" ---Available users:--- ");
+            System.out.println("\n======Available users:====== ");
             for (User user : users) {
-                System.out.println(user);
+                System.out.println("\t*" + user);
             }
-            String choice = getStringInput("Choose a user by typing their name or leave $ to go back: ");
+            String choice = getStringInput("Choose a user by typing their " +
+                    "name, or type '$' to go back: ");
 
             if (choice.equals("$")) {
                 return;
             } else {
                 User foundUser = null;
                 for (User u : users) {
-                    if (u.name.equals(choice)) {
+                    if (u.getName().equals(choice)) {
                         foundUser = u;
                         manageSelectedUser(foundUser);
                         break;
                     }
                 }
                 if (foundUser == null) {
-                    System.out.println("err: User " + choice + " not found.");
+                    System.out.println("\t*User " + choice + " not found.");
                 }
             }
         }
@@ -191,7 +211,9 @@ public class Main {
 
     private static void manageSelectedUser(User user) {
         while (true) {
-            System.out.println("\n--- Managing User: " + user.getName() + " ---");
+            System.out.println("\n====== Managing User: " + user.getName() +
+                    " ======");
+            System.out.println("\n -- Options: --");
             System.out.println("1. Change user's email.");
             System.out.println("2. Change user's password.");
             System.out.println("3. Go to user's friend list");
@@ -230,36 +252,44 @@ public class Main {
                         servers.add(userOnServer.getServer());
                     }
                 }
-            } catch (ClassNotFoundException _) {}
-
+            } catch (ClassNotFoundException _) {
+            }
+            System.out.printf("%n====== %s's servers: ======%n", user.getName());
             if (servers.isEmpty()) {
                 System.out.printf("\t*No servers for user %s found. Create or join at least one server to see them here.%n", user.getName());
             } else {
-                System.out.printf("%s's servers:%n", user.getName());
                 for (Server server : servers) {
-                    System.out.println("\t*" + server);
+                    if (user.getFavoriteServer() != null && user.getFavoriteServer().equals(server)) {
+                        System.out.println("\t*" + server + " (favorited)");
+                    } else {
+                        System.out.println("\t*" + server);
+                    }
                 }
             }
-
-            System.out.println("1. Create a server.");
-            System.out.println("2. Remove a server.");
-            System.out.println("3. Join a server.");
-            System.out.println("4. Leave a server.");
+            System.out.println("\n -- Options: --");
+            System.out.println("1. Choose a server to go to.");
+            System.out.println("2. Create a server.");
+            System.out.println("3. Remove a server.");
+            System.out.println("4. Join a server.");
+            System.out.println("5. Leave a server.");
             System.out.println("0. Go back");
 
             int choice = getIntInput("Choose an option: ");
 
             switch (choice) {
                 case 1:
-                    createServer(user);
+                    chooseServer(user, servers);
                     break;
                 case 2:
-                    removeServer(user);
+                    createServer(user);
                     break;
                 case 3:
-                    joinServer(user);
+                    removeServer(user);
                     break;
                 case 4:
+                    joinServer(user);
+                    break;
+                case 5:
                     leaveServer(user);
                     break;
                 case 0:
@@ -268,6 +298,166 @@ public class Main {
                     System.out.println("Invalid choice. Try again.");
             }
         }
+    }
+
+    private static void chooseServer(User user, Set<Server> servers) {
+        System.out.printf("%n====== %s's servers: ======%n", user.getName());
+        if (servers.isEmpty()) {
+            System.out.printf("\t*No servers for user %s found. Create or join at least one server to see them here.%n", user.getName());
+            return;
+        } else {
+            for (Server server : servers) {
+                System.out.println("\t*" + server);
+            }
+        }
+
+        while (true) {
+            String serverChoice = getStringInput("\nEnter the server name " +
+                    "(ownerName/serverName) to enter, or type '$' to go back:" +
+                    " ");
+            if (serverChoice.equals("$")) {
+                return;
+            }
+            String[] parts = serverChoice.split("/");
+            if (parts.length != 2) {
+                System.out.println("Invalid server path. Must be in the format 'ownerName/serverName'.");
+                continue;
+            }
+            for (Server server : servers) {
+                if (server.getName().equals(parts[1]) && server.getOwner().getName().equals(parts[0])) {
+                    viewChosenServer(user, server);
+                }
+            }
+        }
+    }
+
+    private static void viewChosenServer(User user, Server server) {
+        while (true) {
+            System.out.printf("%n====== Visiting server '%s' (owner: %s) as %s ======%n", server.getName(), server.getOwner().getName(), user.getName());
+            if (server.getOwner().equals(user)) {
+                System.out.println("\n -- Options: --");
+                System.out.println("1. View Channels");
+                System.out.println("2. Add Channel");
+                System.out.println("3. Rename Channel");
+                System.out.println("4. Remove Channel");
+                System.out.println("5. Choose a Channel to Write a Message");
+                System.out.println("6. Mark server as favorite");
+                System.out.println("0. Go back");
+
+                int choice = getIntInput("Enter your choice:");
+
+                switch (choice) {
+                    case 1:
+                        viewChannels(server);
+                        break;
+                    case 2:
+                        addChannel(server);
+                        break;
+                    case 3:
+                        renameChannel(server);
+                        break;
+                    case 4:
+                        removeChannel(server);
+                        break;
+                    case 5:
+                        chooseChannel(user, server);
+                        break;
+                    case 6:
+                        favoriteServer(user, server);
+                        break;
+                    case 0:
+                        return;
+                    default:
+                        System.out.println("Invalid choice. Please try again.");
+                }
+            } else {
+                System.out.println("\n -- Options: --");
+                System.out.println("1. View Channels");
+                System.out.println("2. Choose a Channel to Write a Message");
+                System.out.println("3. Mark server as favorite");
+                System.out.println("0. Exit Server");
+
+                int choice = getIntInput("Enter your choice:");
+
+                switch (choice) {
+                    case 1:
+                        viewChannels(server);
+                        break;
+                    case 2:
+                        chooseChannel(user, server);
+                        break;
+                    case 3:
+                        favoriteServer(user, server);
+                        break;
+                    case 0:
+                        return;
+                    default:
+                        System.out.println("Invalid choice. Please try again.");
+                }
+            }
+        }
+    }
+
+    private static void favoriteServer(User user, Server server) {
+        System.out.printf("Mark server %s as favorite? (It will overwrite the" +
+                        " current favourite server %s) [Y/N]%n", server.getName(),
+                user.getFavoriteServer() == null ? "-" :
+                        user.getFavoriteServer());
+
+        while (true) {
+            String choice = getStringInput("Choose an option: ");
+            if (choice.equalsIgnoreCase("y")) {
+                user.setFavoriteServer(server);
+                System.out.printf("Server %s set as favourite.%n", server.getName());
+                return;
+            } else if (choice.equalsIgnoreCase("n")) {
+                System.out.println("Cancelling server favoriting...");
+                return;
+            } else {
+                System.out.println("Invalid choice. Try again.");
+            }
+        }
+    }
+
+    private static void chooseChannel(User user, Server server) {
+        List<Channel> channels = server.getChannels();
+
+        System.out.printf("%n====== %s Channels: ======%n", server.getName());
+        for (Channel channel : channels) {
+            System.out.println(channel);
+        }
+
+        while (true) {
+
+            String choice = getStringInput("Type a channel's name to write to it, or type '$' to go back: ");
+
+            if (choice.equals("$")) {
+                return;
+            }
+
+            Channel foundChannel = null;
+
+            for (Channel channel : channels) {
+                if (channel.getName().equals(choice)) {
+                    foundChannel = channel;
+                    break;
+                }
+            }
+
+            if (foundChannel == null) {
+                System.out.printf("Channel %s doesn't exist. Try again.%n", choice);
+                continue;
+            }
+            String contents = getStringInput("Type your message: ");
+            try {
+                user.writeMessage(server, foundChannel, contents);
+                System.out.println("Message sent to channel: " + foundChannel.getName());
+                break;
+            } catch (ServerAppException e) {
+                System.out.println(e.getMessage());
+            }
+        }
+
     }
 
 
@@ -299,10 +489,13 @@ public class Main {
                         servers.add(userOnServer.getServer());
                     }
                 }
-            } catch (ClassNotFoundException _) {}
+            } catch (ClassNotFoundException _) {
+            }
 
             if (servers.isEmpty()) {
+                System.out.println("\t*You don't own any servers.");
                 return;
+
             } else {
                 System.out.printf("%s's owned servers:%n", user.getName());
                 for (Server server : servers) {
@@ -331,7 +524,7 @@ public class Main {
 
     private static void joinServer(User user) {
         while (true) {
-            String serverPath = getStringInput("Enter the server path (ownerName/serverName) or type '$' to go back: ");
+            String serverPath = getStringInput("Enter the server name (ownerName/serverName) or type '$' to go back: ");
             if (serverPath.equals("$")) {
                 return;
             }
@@ -339,7 +532,7 @@ public class Main {
                 user.joinServer(serverPath);
                 System.out.printf("Successfully joined server %s.%n", serverPath);
                 return;
-            } catch (ServerAppException | IllegalArgumentException | ClassNotFoundException e) {
+            } catch (ServerAppException e) {
                 System.out.println(e.getMessage());
             }
         }
@@ -354,10 +547,11 @@ public class Main {
                     servers.add(userOnServer.getServer());
                 }
             }
-        } catch (ClassNotFoundException _) {}
+        } catch (ClassNotFoundException _) {
+        }
 
         if (servers.isEmpty()) {
-            System.out.println("You are not a member of any servers you don't own.");
+            System.out.println("\t*You are not a member of any servers you don't own.");
             return;
         }
 
@@ -367,25 +561,28 @@ public class Main {
         }
 
         while (true) {
-            String choice = getStringInput("Enter the server name to leave, or type '$' to go back: ");
+            String choice = getStringInput("Enter the server name (ownerName/serverName) to leave, or type '$' to go back: ");
             if (choice.equals("$")) {
                 return;
             }
+            String[] parts = choice.split("/");
+            if (parts.length != 2) {
+                System.out.println("Invalid server path. Must be in the format 'ownerName/serverName'.");
+                continue;
+            }
             for (Server server : servers) {
-                if (server.getName().equals(choice)) {
+                if (server.getName().equals(parts[1]) && server.getOwner().getName().equals(parts[0])) {
                     try {
-                        user.leaveServer(server);
+                        user.leaveServer(choice);
                         System.out.printf("Successfully left server %s.%n", choice);
                         return;
-                    } catch (ClassNotFoundException e) {
-                        System.out.println("An error occurred while leaving the server.");
+                    } catch (ServerAppException e) {
+                        System.out.println(e.getMessage());
                     }
                 }
             }
-            System.out.println("Server not found. Please enter a valid server name.");
         }
     }
-
 
     private static void goToUserFriendList(User user) {
         Set<User> friends = new LinkedHashSet<>();
@@ -397,17 +594,19 @@ public class Main {
                     friends.add(friendship.getRequester());
                 }
             }
-        } catch (ClassNotFoundException _) {}
+        } catch (ClassNotFoundException _) {
+        }
 
         if (!friends.isEmpty()) {
-            System.out.printf("%s's friend list:%n", user.getName());
+            System.out.printf("%n====== %s's friend list: ======%n", user.getName());
             for (User friend : friends) {
-                System.out.println(friend);
+                System.out.println("\t*" + friend);
             }
         } else {
-            System.out.printf("No friends for user %s found. Add at least one user to see them here.%n", user.getName());
+            System.out.printf("\t*No friends for user %s found. Add at least one user to see them here.%n", user.getName());
         }
         while (true) {
+            System.out.println("\n -- Options: --");
             System.out.println("1. Add a friend.");
             System.out.println("2. Remove a friend.");
             System.out.println("0. Go back");
@@ -470,9 +669,12 @@ public class Main {
 
     private static void changeUserPassword(User user) {
         while (true) {
-            String newPassword = getStringInput("Please provide a new password: ");
+            String newPassword = getStringInput("Please provide a new password, or type '$' to go back: ");
+            if (newPassword.equals("$")) {
+                return;
+            }
             try {
-                user.setHashedPassword(newPassword);
+                user.setPassword(newPassword);
                 System.out.println("Password changed successfully.");
                 return;
             } catch (ServerAppException e) {
@@ -483,15 +685,15 @@ public class Main {
 
     private static void changeUserEmail(User user) {
         while (true) {
-            String newEmail = getStringInput(String.format(
-                    "%s's current email: %s.%nPlease provide a new email: ", user.getName(), user.getEmail()
-            ));
+            String newEmail = getStringInput(String.format("%s's current email: %s.%nPlease provide a new email, or type '$' to go back: ", user.getName(), user.getEmail()));
+            if (newEmail.equals("$")) {
+                return;
+            }
+
             try {
                 user.changeEmail(newEmail);
                 System.out.printf("Email changed to %s.%n", newEmail);
                 return;
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException(e);
             } catch (ServerAppException e) {
                 System.out.println(e.getMessage());
             }
@@ -500,11 +702,11 @@ public class Main {
 
     private static void handleServersData() {
         while (true) {
-            System.out.println("\n--- Servers ---");
-
+            System.out.println("\n====== Servers ======");
+            System.out.println("\n -- Options: --");
             System.out.println("1. Select a server from list.");
             System.out.println("2. See servers with more than N users.");
-            System.out.println("0. Back to Main Menu");
+            System.out.println("0. Go back");
 
 
             int choice = getIntInput("Choose an option: ");
@@ -524,19 +726,24 @@ public class Main {
     }
 
     private static void seeServers() {
-        System.out.println(" ---Available servers:--- ");
-        Set<Server> servers = new LinkedHashSet<>();
+        Set<Server> servers;
         try {
-            servers = (LinkedHashSet<Server>) ObjectPlus.getExtent(Server.class);
+            servers = new LinkedHashSet<>((Collection<Server>) ObjectPlus.getExtent(Server.class));
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
-        for (Server s : servers) {
-            System.out.println(s);
-        }
 
         while (true) {
-            String choice = getStringInput("\n Choose a server by typing 'ownerName/serverName' or type '$' to go back: ");
+            System.out.println(" \n--Available servers:====== ");
+            if (!servers.isEmpty()) {
+                for (Server s : servers) {
+                    System.out.println(s);
+                }
+            } else {
+                System.out.println("\t*No servers available");
+            }
+
+            String choice = getStringInput("\nChoose a server by typing 'ownerName/serverName' or type '$' to go back: ");
 
             if (choice.equals("$")) {
                 return;
@@ -548,10 +755,9 @@ public class Main {
                 }
                 String ownerName = parts[0];
                 String serverName = parts[1];
-                Server server = null;
                 for (Server s : servers) {
-                    if (s.getName().equals(serverName) && s.getOwner().equals(ownerName)) {
-                        manageSelectedServer(s);
+                    if (s.getName().equals(serverName) && s.getOwner().getName().equals(ownerName)) {
+                        checkSelectedServer(s);
                         break;
                     }
                 }
@@ -560,20 +766,19 @@ public class Main {
         }
     }
 
-    private static void manageSelectedServer(Server server) {
-        System.out.println("\n--- Managing Server: " + server.getName() + " ---");
-        System.out.println("1. Manage channels. (Add, rename, remove)");
-        System.out.println("2. See members.");
-        System.out.println("0. Go back");
-
+    private static void checkSelectedServer(Server server) {
         while (true) {
+            System.out.printf("\n====== Server %s/%s ======\n", server.getOwner().getName(), server.getName());
+            System.out.println("\n -- Options: --");
+            System.out.println("1. See members.");
+            System.out.println("2. See channels");
+            System.out.println("0. Go back");
+
             int choice = getIntInput("Choose an option: ");
             switch (choice) {
                 case 1:
-                    handleChannels(server);
-                    break;
-                case 2:
                     seeServerMembers(server);
+                    break;
                 case 0:
                     return;
                 default:
@@ -583,90 +788,33 @@ public class Main {
     }
 
     private static void seeServerMembers(Server server) {
-        System.out.println("Seeing members: ");
-        System.out.println("1. See clean members.");
-        System.out.println("2. See muted members.");
-        System.out.println("0. Go back");
+        System.out.printf("\n====== Members of server %s/%s ======\n",
+                server.getOwner().getName(), server.getName());
 
 
-        while (true) {
-            int choice = getIntInput("Choose an option: ");
-            switch (choice) {
-                case 1:
-                    try {
-                        List<UserOnServer> users = server.getUsersByStatus(UserStatus.CLEAN);
-                        System.out.println("Clean users: ");
-                        for (UserOnServer u : users) {
-                            System.out.println(u.getServer().getName() + "(joined: " + u.getJoinDate() + ")");
-                        }
-                        break;
-                    } catch (ClassNotFoundException e) {
-                        throw new RuntimeException(e);
-                    }
-                case 2:
-                    try {
-                        List<UserOnServer> users = server.getUsersByStatus(UserStatus.MUTED);
-                        System.out.println("Muted users: ");
-                        for (UserOnServer u : users) {
-                            System.out.println(u.getServer().getName() + "(joined: " + u.getJoinDate() + ")");
-                        }
-                        break;
-                    } catch (ClassNotFoundException e) {
-                        throw new RuntimeException(e);
-                    }
-                case 0:
-                    return;
-                default:
-                    System.out.println("Invalid choice. Try again.");
-            }
+        List<UserOnServer> users = null;
+        try {
+            users = server.getUsersOnServer();
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+        for (UserOnServer u : users) {
+            System.out.println(u.getUser().getName() +
+                    "(joined:" +
+                    " " + u.getJoinDate() + ")");
         }
     }
 
     private static void getServersWithNUsers() {
         int choice = getIntInput("Input the minimum amount of users: ");
 
-        try {
-            Map<Server, Integer> servers = Server.getServersWithNUsers(choice);
-            List<Map.Entry<Server, Integer>> list = new ArrayList<>(servers.entrySet());
-            list.sort(Map.Entry.comparingByValue());
+        Map<Server, Integer> servers = Server.getServersWithNUsers(choice);
+        List<Map.Entry<Server, Integer>> list = new ArrayList<>(servers.entrySet());
+        list.sort(Map.Entry.comparingByValue());
 
-            System.out.println("Servers with at least " + choice + " users:");
-            for (Map.Entry<Server, Integer> entry : list) {
-                System.out.println(entry.getKey() + ": " + entry.getValue() + " users");
-            }
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static void handleChannels(Server server) {
-        System.out.printf("\n--- Managing Server: %s ---%n", server.getName());
-        while (true) {
-            System.out.println("1. View channels");
-            System.out.println("2. Add channel");
-            System.out.println("3. Rename channel");
-            System.out.println("4. Remove channel");
-            System.out.println("0. Go back");
-
-            int choice = getIntInput("Choose an option: ");
-            switch (choice) {
-                case 1:
-                    viewChannels(server);
-                    break;
-                case 2:
-                    addChannel(server);
-                    break;
-                case 3:
-                    renameChannel(server);
-                    break;
-                case 4:
-                    removeChannel(server);
-                    break;
-                case 0:
-                    return;
-                default:
-                    System.out.println("Invalid choice. Try again.");
-            }
+        System.out.printf("\n====== Servers with at least %d users ======\n", choice);;
+        for (Map.Entry<Server, Integer> entry : list) {
+            System.out.println(entry.getKey());
         }
     }
 
@@ -678,7 +826,7 @@ public class Main {
             }
             try {
                 String rename = getStringInput("Please provide a new channel name: ");
-                server.renameChannel(rename);
+                server.renameChannel(choice, rename);
                 System.out.printf("Channel %s renamed to %s.%n", choice, rename);
                 return;
             } catch (ServerAppException e) {
@@ -720,9 +868,42 @@ public class Main {
     }
 
     private static void viewChannels(Server server) {
-        System.out.printf("%s's channels:%n", server.getName());
+        System.out.printf("%n====== %s's channels: ======%n", server.getName());
         for (Channel channel : server.getChannels()) {
             System.out.println(channel);
+        }
+
+        while (true) {
+
+            String choice = getStringInput("Type a channel's name to see its " +
+                    "message history, or type '$' to go back: ");
+
+            if (choice.equals("$")) {
+                return;
+            }
+
+            Channel foundChannel = null;
+
+            for (Channel channel : server.getChannels()) {
+                if (channel.getName().equals(choice)) {
+                    foundChannel = channel;
+                    break;
+                }
+            }
+
+            if (foundChannel == null) {
+                System.out.printf("Channel %s doesn't exist. Try again.%n", choice);
+                continue;
+            }
+
+            System.out.printf("%n====== Channel %s log start: ======%n",
+                    foundChannel.getName());
+            for (Message message : foundChannel.getMessages()) {
+                System.out.println(message);
+            }
+            System.out.printf("%n====== Channel %s log end: ======%n",
+                    foundChannel.getName());
+            return;
         }
 
     }
@@ -730,18 +911,41 @@ public class Main {
 
     private static int getIntInput(String prompt) {
         System.out.print(prompt);
-        while (!scanner.hasNextInt()) {
+        while (!intScanner.hasNextInt()) {
             System.out.println("Invalid input. Enter a valid number.");
-            scanner.next();
+            intScanner.next();
         }
-        return scanner.nextInt();
+        return intScanner.nextInt();
     }
 
     private static String getStringInput(String prompt) {
         System.out.print(prompt);
-        String input = scanner.next();
-        return input.trim();
+        return stringScanner.nextLine().trim();
     }
 
+    private static void fillWithTestData(){
+        try {
+            User john = new User("john", "john@work", "work");
+            User mary = new User("mary", "mary@work", "work");
+            User steve =new User("steve", "steve@work", "work");
 
+            new Friendship(john, steve);
+            new Friendship(steve, mary);
+
+            Server serv1 = new Server("serv", john);
+            Server serv2 = new Server("serv", steve);
+
+            john.joinServer("steve/serv");
+            mary.joinServer("steve/serv");
+
+            Channel ch1 = new Channel("general2");
+            serv2.addChannel(ch1);
+
+            mary.writeMessage(serv2,  ch1, "hejka");
+            steve.writeMessage(serv2, ch1, "czesc");
+
+            System.out.println("\nProgram filled with test data.");
+
+        } catch (ServerAppException | ClassNotFoundException _) {}
+    }
 }

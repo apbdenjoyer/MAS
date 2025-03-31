@@ -22,7 +22,7 @@ public abstract class ObjectPlus implements Serializable {
     }
 
     public static void writeExtents(String filename) throws IOException {
-        ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(filename + ".bin"));
+        ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(filename));
         out.writeObject(extents);
         out.close();
     }

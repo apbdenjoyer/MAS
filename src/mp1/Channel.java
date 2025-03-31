@@ -1,14 +1,16 @@
 package mp1;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Channel extends ObjectPlus {
     private String name;
-    private List<Message> messages;
+    private final List<Message> messages;
 
     public Channel(String name) {
         super();
         this.name = name;
+        this.messages = new ArrayList<>();
     }
 
     public String getName() {
@@ -16,6 +18,7 @@ public class Channel extends ObjectPlus {
     }
 
     public void setName(String channelName) {
+        this.name = channelName;
     }
 
     public List<Message> getMessages() {
@@ -29,6 +32,9 @@ public class Channel extends ObjectPlus {
         messages.add(message);
     }
 
-
+    @Override
+    public String toString() {
+        return String.format("%s (%d messages)", this.name, this.messages.size());
+    }
 }
 

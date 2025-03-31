@@ -7,13 +7,18 @@ import java.util.Iterator;
 import java.util.Objects;
 
 public class User extends ObjectPlus {
-    String name;
-    String email;
-    int hashedPassword;
-    LocalDate creationDate;
-    LocalDate lastEmailChangeDate;
+    private String name;
+    private String email;
+    private int hashedPassword;
+    private LocalDate creationDate;
+    private LocalDate lastEmailChangeDate;
+
+    private Server favoriteServer = null;
 
     static int DAYS_UNTIL_EMAIL_CHANGE_ALLOWED = 7;
+    static int MIN_PASS_LEN = 3;
+    static int MIN_NAME_LEN = 3;
+    static int MAX_NAME_LEN = 16;
 
     public User(String name, String email, String password) throws ServerAppException, ClassNotFoundException {
         super();
@@ -21,22 +26,31 @@ public class User extends ObjectPlus {
         this.name = "";
 
         if (!isNameValid(name)) {
+            removeFromExtent(this);
             throw new ServerAppException("Name is invalid. Please make sure it contains between 3 and 20 allowed characters: (letters, numbers, underscores)");
         }
         if (!isNameAvailable(name)) {
+            removeFromExtent(this);
             throw new ServerAppException(String.format("Name %s is already in use.", name));
         }
 
         if (!isEmailValid(email)) {
+            removeFromExtent(this);
             throw new ServerAppException(String.format("Email %s is not valid.", email));
         }
         if (!isEmailAvailable(email)) {
+            removeFromExtent(this);
             throw new ServerAppException(String.format("Email %s is already in use.", email));
         }
 
+        if (!isPasswordValid(password)) {
+            removeFromExtent(this);
+            throw new ServerAppException("Password is too short (min. 3 characters)");
+        }
+
+        this.hashedPassword=hashPassword(password);
         setName(name);
-        setEmail(email);
-        setHashedPassword(password);
+        this.email=email;
         this.creationDate = LocalDate.now();
 
 //        allow user to change email once from the get-go
@@ -54,7 +68,11 @@ public class User extends ObjectPlus {
             return false;
         }
 
-        return name.matches("\\w{3,20}");
+        if (name.length() < MIN_NAME_LEN || name.length() > MAX_NAME_LEN) {
+            return false;
+        }
+
+        return name.matches("\\w+");
     }
 
     private boolean isNameAvailable(String name) throws ClassNotFoundException {
@@ -73,17 +91,18 @@ public class User extends ObjectPlus {
         return email.matches("^\\w+@\\w+");
     }
 
-    private boolean isEmailAvailable(String email) throws ClassNotFoundException {
-        for (User user : getExtent(User.class)) {
-            if (user.name.equals(email)) {
-                return false;
+    private boolean isEmailAvailable(String email) {
+        try {
+            for (User user : getExtent(User.class)) {
+                if (user.getEmail() != null && user.getEmail().equals(email)) {
+                    return false;
+                }
             }
+        } catch (ClassNotFoundException _) {
+//            if extent failed, then no users are stored -> email is free
+            return true;
         }
         return true;
-    }
-
-    private boolean isPasswordSame(String password) {
-        return hashPassword(password) == this.hashedPassword;
     }
 
     private boolean isEmailSame(String newEmail) {
@@ -108,40 +127,40 @@ public class User extends ObjectPlus {
         return email;
     }
 
-    public void changeEmail(String email) throws ClassNotFoundException, ServerAppException {
+    public void changeEmail(String email) throws ServerAppException {
         if (!isEmailValid(email)) {
             throw new ServerAppException(String.format("Email %s is not valid.", email));
         }
+
+        if (isEmailSame(email)) {
+            return;
+        }
+
         long daysFromLastEmailChange = ChronoUnit.DAYS.between(lastEmailChangeDate, LocalDate.now());
         if (daysFromLastEmailChange < DAYS_UNTIL_EMAIL_CHANGE_ALLOWED) {
             throw new ServerAppException(String.format("You cannot change your email now. Please try again in %d days.", DAYS_UNTIL_EMAIL_CHANGE_ALLOWED - daysFromLastEmailChange));
         }
-        if (!isEmailAvailable(email)) {
+        if (!isEmailAvailable(email) && !email.equals(this.email)) {
             throw new ServerAppException(String.format("Email %s is already in use.", email));
-        }
-        if (isEmailSame(email)) {
-            throw new ServerAppException(String.format("Email %s cannot be the same.", email));
         }
         this.email = email;
         this.lastEmailChangeDate = LocalDate.now();
-    }
-
-    public void setEmail(String email) {
-        if (isEmailValid(email)) {
-            this.email = email;
-        }
     }
 
     public int getHashedPassword() {
         return hashedPassword;
     }
 
-    public void setHashedPassword(String password) throws ServerAppException {
-        if (isPasswordSame(password)) {
-            throw new ServerAppException("Password cannot be the same.");
+    public void setPassword(String password) throws ServerAppException {
+        if(!isPasswordValid(password)) {
+            return;
         }
 
         this.hashedPassword = hashPassword(password);
+    }
+
+    private boolean isPasswordValid(String password) throws ServerAppException {
+        return password.length()>MIN_PASS_LEN;
     }
 
     public LocalDate getCreationDate() {
@@ -207,7 +226,7 @@ public class User extends ObjectPlus {
                     throw new ServerAppException(String.format("Friendship between %s and %s already exists.", this.getName(), foundUser.getName()));
                 }
             }
-        } catch (ClassNotFoundException e) {
+        } catch (ClassNotFoundException _) {
         }
         new Friendship(this, foundUser);
     }
@@ -247,7 +266,7 @@ public class User extends ObjectPlus {
         }
     }
 
-    public void joinServer(String serverPath) throws ClassNotFoundException, ServerAppException {
+    public void joinServer(String serverPath) throws ServerAppException {
         if (serverPath == null) {
             throw new IllegalArgumentException("Server path cannot be null.");
         }
@@ -257,43 +276,77 @@ public class User extends ObjectPlus {
             throw new IllegalArgumentException("Invalid server path. Must be in the format 'ownerName/serverName'.");
         }
 
-        String ownerName = pathParts[0];
-        String serverName = pathParts[1];
+        try {
 
-        Server foundServer = null;
+            String ownerName = pathParts[0];
+            String serverName = pathParts[1];
 
-        for (Server server : getExtent(Server.class)) {
-            if (server.getName().equals(serverName) && server.getOwner().equals(ownerName)) {
-                foundServer = server;
-                break;
+            Server foundServer = null;
+
+            for (Server server : getExtent(Server.class)) {
+                if (server.getName().equals(serverName) && server.getOwner().getName().equals(ownerName)) {
+
+                    if (server.getOwner().equals(this)) {
+                        throw new ServerAppException(String.format("User %s cannot join their own server %s.%n", this.getName(), serverPath));
+                    } else {
+                        foundServer = server;
+                        break;
+                    }
+                }
             }
-        }
 
-        if (foundServer == null) {
-            throw new ServerAppException(String.format("Server %s made by %s does not exist.", serverName, ownerName));
-        }
 
-        for (UserOnServer userOnServer : getExtent(UserOnServer.class)) {
-            if (userOnServer.getServer().equals(foundServer) && userOnServer.getUser().equals(this)) {
-                throw new ServerAppException(String.format("User %s has already joined server %s by %s.", this.getName(), foundServer.getName(), ownerName));
+
+            if (foundServer == null) {
+                throw new ServerAppException(String.format("Server %s made by %s does not exist.", serverName, ownerName));
             }
+
+            for (UserOnServer userOnServer : getExtent(UserOnServer.class)) {
+                if (userOnServer.getServer().equals(foundServer) && userOnServer.getUser().equals(this)) {
+                    throw new ServerAppException(String.format("User %s has already joined server %s by %s.", this.getName(), foundServer.getName(), ownerName));
+                }
+            }
+            new UserOnServer(this, foundServer);
+        } catch (ClassNotFoundException _) {
         }
-        new UserOnServer(this, foundServer);
     }
 
-    public void leaveServer(Server server) throws ClassNotFoundException {
-        if (server == null) {
-            throw new IllegalArgumentException("Server cannot be null.");
+    public void leaveServer(String serverPath) throws ServerAppException {
+        if (serverPath == null) {
+            throw new IllegalArgumentException("Server path cannot be null.");
         }
 
-        for (UserOnServer userOnServer : getExtent(UserOnServer.class)) {
-            if (userOnServer.getUser().equals(this) && userOnServer.getServer().equals(server)) {
-                userOnServer.setLeaveDate(LocalDate.now());
+        String[] pathParts = serverPath.split("/");
+        if (pathParts.length < 2) {
+            throw new IllegalArgumentException("Invalid server path. Must be in the format 'ownerName/serverName'.");
+        }
+
+        try {
+            String ownerName = pathParts[0];
+            String serverName = pathParts[1];
+
+            UserOnServer foundServer = null;
+
+            for (UserOnServer userOnServer : getExtent(UserOnServer.class)) {
+                if (userOnServer.getUser().equals(this) &&
+                        userOnServer.getServer().getName().equals(serverName) &&
+                        userOnServer.getServer().getOwner().getName().equals(ownerName)) {
+
+                    foundServer = userOnServer;
+                    break;
+                }
             }
+
+            if (foundServer == null) {
+                throw new ServerAppException(String.format("User %s isn't a member of server %s by %s.%n", this.getName(), serverName, ownerName));
+            }
+
+            removeFromExtent(foundServer);
+        } catch (ClassNotFoundException _) {
         }
     }
 
-    public void writeMessage(Server server, Channel channel, String contents, Message parent) throws ClassNotFoundException, ServerAppException {
+    public void writeMessage(Server server, Channel channel, String contents) throws ServerAppException {
         if (server == null) {
             throw new IllegalArgumentException("Server cannot be null.");
         }
@@ -304,44 +357,25 @@ public class User extends ObjectPlus {
             throw new IllegalArgumentException("Contents cannot be null.");
         }
 
-        for (UserOnServer userOnServer : getExtent(UserOnServer.class)) {
+        try {
+            for (UserOnServer userOnServer : getExtent(UserOnServer.class)) {
 
-//            User has been a server member.
-            if (userOnServer.getUser().equals(this) && userOnServer.getServer().equals(server) && userOnServer.getLeaveDate() == null) {
+//                user is a server member
+                if (userOnServer.getServer().equals(server) && userOnServer.getUser().equals(this)) {
 
-
-                if (userOnServer.getStatus().equals(UserStatus.MUTED)) {
-                    throw new ServerAppException(String.format("User %s is muted on server %s.", this.getName(), server.getName()));
-                }
-
-
-                if (userOnServer.getServer().getChannels().contains(channel)) {
-                    channel.addMessage(new Message(parent, this, contents));
-                    return;
-                } else {
-                    throw new IllegalArgumentException(String.format("Channel %s doesn't exist in server %s.", channel.getName(), server.getName()));
+                    if (userOnServer.getServer().getChannels().contains(channel)) {
+                        Message message = new Message(this, contents);
+                        channel.addMessage(message);
+                        return;
+                    } else {
+                        throw new ServerAppException(String.format("Channel %s doesn't exist in server %s.", channel.getName(), server.getName()));
+                    }
                 }
             }
+        } catch (ClassNotFoundException _) {
         }
-        throw new ServerAppException(String.format("User %s isn't a member of server %s.", this.getName(), server.getName()));
     }
 
-//
-//    public void deleteUser() throws ClassNotFoundException, ServerAppException {
-//        for (UserOnServer userOnServer : getExtent(UserOnServer.class)) {
-//            if (userOnServer.getUser().equals(this)) {
-//                removeFromExtent(userOnServer);
-//            }
-//        }
-//        for (Friendship friendship : getExtent(Friendship.class)) {
-//            if (friendship.getRequester().equals(this)) {
-//                removeFromExtent(friendship);
-//            }
-//        }
-//        for (User user : getExtent(User.class)) {
-//            removeFromExtent(user);
-//        }
-//    }
 
     public void createServer(String serverName) throws ServerAppException {
         if (serverName == null) {
@@ -397,5 +431,13 @@ public class User extends ObjectPlus {
         return
                 String.format(
                         "Name: %s;  Email: %s;  Creation Date:  %s;", this.name, this.email, this.creationDate);
+    }
+
+    public Server getFavoriteServer() {
+        return favoriteServer;
+    }
+
+    public void setFavoriteServer(Server favoriteServer) {
+        this.favoriteServer = favoriteServer;
     }
 }
