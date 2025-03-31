@@ -331,90 +331,60 @@ public class Main {
 
     private static void joinServer(User user) {
         while (true) {
-            String choice = getStringInput("Enter the server name in the format 'ownername/servername' or type '$' to go back: ");
-
-            if (choice.equals("$")) {
+            String serverPath = getStringInput("Enter the server path (ownerName/serverName) or type '$' to go back: ");
+            if (serverPath.equals("$")) {
                 return;
             }
-
-            String[] parts = choice.split("/");
-            if (parts.length != 2) {
-                System.out.println("Invalid format. Please use 'ownername/servername'.");
-                continue;
-            }
-
-            String ownerName = parts[0];
-            String serverName = parts[1];
-            Server targetServer = null;
-
             try {
-                for (UserOnServer userOnServer : ObjectPlus.getExtent(UserOnServer.class)) {
-                    Server server = userOnServer.getServer();
-                    if (server.getOwner().getName().equals(ownerName) && server.getName().equals(serverName)) {
-                        targetServer = server;
-                        break;
-                    }
-                }
-            } catch (ClassNotFoundException _) {}
-
-            if (targetServer == null) {
-                System.out.println("Server not found. Make sure you entered the correct format and the server exists.");
-            } else {
-                try {
-                    user.joinServer(targetServer);
-                    System.out.printf("Successfully joined server %s/%s.%n", ownerName, serverName);
-                    return;
-                } catch (ServerAppException e) {
-                    System.out.println(e.getMessage());
-                }
+                user.joinServer(serverPath);
+                System.out.printf("Successfully joined server %s.%n", serverPath);
+                return;
+            } catch (ServerAppException | IllegalArgumentException | ClassNotFoundException e) {
+                System.out.println(e.getMessage());
             }
         }
     }
 
     private static void leaveServer(User user) {
-        Set<Server> joinableServers = new LinkedHashSet<>();
+        Set<Server> servers = new LinkedHashSet<>();
 
         try {
             for (UserOnServer userOnServer : ObjectPlus.getExtent(UserOnServer.class)) {
                 if (userOnServer.getUser().equals(user) && !userOnServer.getServer().getOwner().equals(user)) {
-                    joinableServers.add(userOnServer.getServer());
+                    servers.add(userOnServer.getServer());
                 }
             }
         } catch (ClassNotFoundException _) {}
 
-        if (joinableServers.isEmpty()) {
-            System.out.println("You are not a member of any servers that you do not own.");
+        if (servers.isEmpty()) {
+            System.out.println("You are not a member of any servers you don't own.");
             return;
         }
 
-        System.out.printf("%s's joinable servers:%n", user.getName());
-        for (Server server : joinableServers) {
+        System.out.printf("%s's joined servers:%n", user.getName());
+        for (Server server : servers) {
             System.out.println("\t*" + server);
         }
 
         while (true) {
             String choice = getStringInput("Enter the server name to leave, or type '$' to go back: ");
-
             if (choice.equals("$")) {
                 return;
             }
-
-            for (Server server : joinableServers) {
+            for (Server server : servers) {
                 if (server.getName().equals(choice)) {
                     try {
                         user.leaveServer(server);
                         System.out.printf("Successfully left server %s.%n", choice);
                         return;
-                    } catch (ServerAppException e) {
-                        System.out.println(e.getMessage());
+                    } catch (ClassNotFoundException e) {
+                        System.out.println("An error occurred while leaving the server.");
                     }
                 }
             }
-
-            System.out.println("Server not found in your joined servers. Please try again.");
+            System.out.println("Server not found. Please enter a valid server name.");
         }
     }
-
 
 
     private static void goToUserFriendList(User user) {
