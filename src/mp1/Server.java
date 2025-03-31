@@ -16,6 +16,7 @@ public class Server extends ObjectPlus {
         this.name = name;
         this.owner = owner;
         channels.add(new Channel("general"));
+        new UserOnServer(owner, this);
     }
 
     public String getName() {

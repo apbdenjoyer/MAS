@@ -3,6 +3,7 @@ package mp1;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
+import java.util.Iterator;
 import java.util.Objects;
 
 public class User extends ObjectPlus {
@@ -182,23 +183,68 @@ public class User extends ObjectPlus {
         return Period.between(creationDate, LocalDate.now());
     }
 
-    public void addFriend(User addressee) throws ClassNotFoundException, ServerAppException {
-        for (Friendship friendship : getExtent(Friendship.class)) {
-            if (friendship.getRequester().equals(this) && friendship.getAddressee().equals(addressee)) {
-                throw new ServerAppException(String.format("Friendship between %s and %s already exists.", this.getName(), addressee.getName()));
+    public void addFriend(String username) throws ServerAppException {
+
+        User foundUser = null;
+        try {
+            for (User user : getExtent(User.class)) {
+                if (user.getName().equals(username)) {
+                    foundUser = user;
+                    break;
+                }
             }
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
         }
-        new Friendship(this, addressee);
+
+        if (foundUser == null) {
+            throw new ServerAppException(String.format("User %s doesn't exist.", username));
+        }
+
+        try {
+            for (Friendship friendship : getExtent(Friendship.class)) {
+                if (friendship.getRequester().equals(this) && friendship.getAddressee().equals(foundUser) || friendship.getAddressee().equals(this) && friendship.getRequester().equals(foundUser)) {
+                    throw new ServerAppException(String.format("Friendship between %s and %s already exists.", this.getName(), foundUser.getName()));
+                }
+            }
+        } catch (ClassNotFoundException e) {
+        }
+        new Friendship(this, foundUser);
     }
 
-    public void removeFriend(User addressee) throws ClassNotFoundException, ServerAppException {
-        for (Friendship friendship : getExtent(Friendship.class)) {
-            if (friendship.getRequester().equals(this) && friendship.getAddressee().equals(addressee)) {
-                removeFromExtent(this);
-                return;
-            }
+
+    public void removeFriend(String username) throws ClassNotFoundException, ServerAppException {
+
+        if (username == null) {
+            throw new IllegalArgumentException("Username cannot be null.");
         }
-        throw new ServerAppException(String.format("Friendship between %s and %s doesn't exist.", this.getName(), addressee.getName()));
+
+        try {
+            User foundUser = null;
+
+            for (User user : getExtent(User.class)) {
+                if (user.getName().equals(username)) {
+                    foundUser = user;
+                    break;
+                }
+            }
+
+            if (foundUser == null) {
+                throw new ServerAppException(String.format("User %s doesn't exist.", username));
+            }
+
+            Iterator<Friendship> iterator = getExtent(Friendship.class).iterator();
+            while (iterator.hasNext()) {
+                Friendship friendship = iterator.next();
+                if (friendship.getRequester().equals(this) && friendship.getAddressee().equals(foundUser) || friendship.getAddressee().equals(this) && friendship.getRequester().equals(foundUser)) {
+                    iterator.remove();
+                    return;
+                }
+            }
+        } catch (ClassNotFoundException _) {
+        } catch (ServerAppException e) {
+            throw new ServerAppException(String.format("Friendship between %s and %s doesn't exist.", this.getName(), username));
+        }
     }
 
     public void joinServer(String serverPath) throws ClassNotFoundException, ServerAppException {
@@ -297,37 +343,54 @@ public class User extends ObjectPlus {
 //        }
 //    }
 
-    public void createServer(String serverName) throws ClassNotFoundException, ServerAppException {
+    public void createServer(String serverName) throws ServerAppException {
         if (serverName == null) {
             throw new IllegalArgumentException("Server name cannot be null.");
         }
-        for (Server server : getExtent(Server.class)) {
-            if (server.getOwner().equals(this) && server.getName().equals(serverName)) {
-                throw new ServerAppException(String.format("User %s already owns server named %s.", this.getName(), serverName));
+
+        try {
+            for (Server server : getExtent(Server.class)) {
+                if (server.getOwner().equals(this) && server.getName().equals(serverName)) {
+                    throw new ServerAppException(String.format("User %s already owns server named %s.", this.getName(), serverName));
+                }
             }
+        } catch (ClassNotFoundException _) {
         }
         new Server(serverName, this);
     }
 
-    public void deleteServer(String serverName) throws ClassNotFoundException, ServerAppException {
+    public void removeServer(String serverName) throws ServerAppException {
         if (serverName == null) {
             throw new IllegalArgumentException("Server name cannot be null.");
         }
 
-        for (Server server : getExtent(Server.class)) {
-            if (server.getOwner().equals(this) && server.getName().equals(serverName)) {
-                for (UserOnServer userOnServer : getExtent(UserOnServer.class)) {
-                    if (userOnServer.getServer().equals(server)) {
-                        removeFromExtent(userOnServer);
-                    }
-                }
-                removeFromExtent(server);
-                return;
-            }
-        }
-        throw new ServerAppException(String.format("User %s already owns server named %s.", this.getName(), serverName));
+        try {
+            Server foundServer = null;
 
+            for (Server server : getExtent(Server.class)) {
+                if (server.getOwner().equals(this) && server.getName().equals(serverName)) {
+                    foundServer = server;
+                    break;
+                }
+            }
+
+            if (foundServer == null) {
+                throw new ServerAppException(String.format("User %s doesn't own a server named %s.", this.getName(), serverName));
+            }
+
+            Iterator<UserOnServer> iterator = getExtent(UserOnServer.class).iterator();
+            while (iterator.hasNext()) {
+                UserOnServer userOnServer = iterator.next();
+                if (userOnServer.getServer().equals(foundServer)) {
+                    iterator.remove();
+                }
+            }
+
+            removeFromExtent(foundServer);
+        } catch (ClassNotFoundException _) {
+        }
     }
+
 
     @Override
     public String toString() {

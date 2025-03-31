@@ -7,17 +7,17 @@ import java.util.*;
 
 //TODO:
 /*
-* Finish user page:
-* 1. make sure creating users works FULLY
-* 2. show friendlists and have two options: add new friend, delete existing friend
-* 3. show servers:
-*       *show your servers (select a channel and write message, add/rename/delete channel)
-*       *show joined servers
-*       *join servers by name
-*
-* Fix up server page:
-*
-* Add test data as a method
+ * Finish user page:
+ * 1. make sure creating users works FULLY
+ * 2. show friendlists and have two options: add new friend, delete existing friend
+ * 3. show servers:
+ *       *show your servers (select a channel and write message, add/rename/delete channel)
+ *       *show joined servers
+ *       *join servers by name
+ *
+ * Fix up server page:
+ *
+ * Add test data as a method
  */
 
 public class Main {
@@ -115,7 +115,7 @@ public class Main {
                     seeUsers();
                     break;
                 case 2:
-                    addUser();
+                    createUser();
                     break;
                 case 0:
                     return;
@@ -125,7 +125,7 @@ public class Main {
         }
     }
 
-    private static void addUser() {
+    private static void createUser() {
         while (true) {
             String choice = getStringInput("Please provide an username, email and password in form of 'username;email;password' or type $ to go back. You can omit the username to have one generated from your email address: ");
             if (choice.equals("$")) {
@@ -154,32 +154,36 @@ public class Main {
     }
 
     private static void seeUsers() {
-        System.out.println("Available users:");
         List<User> users = new ArrayList<>();
-        try {
-            users = (List<User>) ObjectPlus.getExtent(User.class);
-        } catch (ClassNotFoundException e) {
-            System.out.println("No users found. Add at least one user to see them here.");
-            return;
-        }
-        for (User user : users) {
-            System.out.println(user);
-        }
 
         while (true) {
-            String choice = getStringInput("\nChoose a user by typing their name or leave $ to go back: ");
+            try {
+                users = (List<User>) ObjectPlus.getExtent(User.class);
+            } catch (ClassNotFoundException e) {
+                System.out.println("No users found. Add at least one user to see them here.");
+                return;
+            }
+
+            System.out.println(" ---Available users:--- ");
+            for (User user : users) {
+                System.out.println(user);
+            }
+            String choice = getStringInput("Choose a user by typing their name or leave $ to go back: ");
 
             if (choice.equals("$")) {
                 return;
             } else {
+                User foundUser = null;
                 for (User u : users) {
                     if (u.name.equals(choice)) {
-                        manageSelectedUser(u);
+                        foundUser = u;
+                        manageSelectedUser(foundUser);
                         break;
                     }
                 }
-                System.out.println("err: User " + choice + " not found.");
-                continue;
+                if (foundUser == null) {
+                    System.out.println("err: User " + choice + " not found.");
+                }
             }
         }
 
@@ -190,8 +194,8 @@ public class Main {
             System.out.println("\n--- Managing User: " + user.getName() + " ---");
             System.out.println("1. Change user's email.");
             System.out.println("2. Change user's password.");
-            System.out.println("3. See user's friend list");
-            System.out.println("4. See user's servers");
+            System.out.println("3. Go to user's friend list");
+            System.out.println("4. Go to user's servers");
             System.out.println("0. Go back");
 
             int choice = getIntInput("Choose an option: ");
@@ -203,9 +207,10 @@ public class Main {
                     changeUserPassword(user);
                     break;
                 case 3:
-                    seeUserFriendlist(user);
+                    goToUserFriendList(user);
                     break;
                 case 4:
+                    goToUserServers(user);
                     break;
                 case 0:
                     return;
@@ -215,9 +220,205 @@ public class Main {
         }
     }
 
-    private static void seeUserFriendlist(User user) {
-        System.out.printf("%s's friendlist:%n", user.getName());
-        List<User> friends = new ArrayList<>();
+    private static void goToUserServers(User user) {
+        Set<Server> servers = new LinkedHashSet<>();
+        while (true) {
+            servers.clear();
+            try {
+                for (UserOnServer userOnServer : ObjectPlus.getExtent(UserOnServer.class)) {
+                    if (userOnServer.getUser().equals(user)) {
+                        servers.add(userOnServer.getServer());
+                    }
+                }
+            } catch (ClassNotFoundException _) {}
+
+            if (servers.isEmpty()) {
+                System.out.printf("\t*No servers for user %s found. Create or join at least one server to see them here.%n", user.getName());
+            } else {
+                System.out.printf("%s's servers:%n", user.getName());
+                for (Server server : servers) {
+                    System.out.println("\t*" + server);
+                }
+            }
+
+            System.out.println("1. Create a server.");
+            System.out.println("2. Remove a server.");
+            System.out.println("3. Join a server.");
+            System.out.println("4. Leave a server.");
+            System.out.println("0. Go back");
+
+            int choice = getIntInput("Choose an option: ");
+
+            switch (choice) {
+                case 1:
+                    createServer(user);
+                    break;
+                case 2:
+                    removeServer(user);
+                    break;
+                case 3:
+                    joinServer(user);
+                    break;
+                case 4:
+                    leaveServer(user);
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Invalid choice. Try again.");
+            }
+        }
+    }
+
+
+    private static void createServer(User user) {
+        while (true) {
+            String choice = getStringInput("Provide a server name, or type $ to go back: ");
+            if (choice.equals("$")) {
+                System.out.println("\nCanceling server creation...");
+                return;
+            }
+            try {
+                user.createServer(choice);
+                System.out.printf("Server %s created successfully.%n", choice);
+                return;
+            } catch (ServerAppException e) {
+                System.out.println(e.getMessage());
+            }
+        }
+    }
+
+    private static void removeServer(User user) {
+
+        Set<Server> servers = new LinkedHashSet<>();
+        while (true) {
+            servers.clear();
+            try {
+                for (UserOnServer userOnServer : ObjectPlus.getExtent(UserOnServer.class)) {
+                    if (userOnServer.getUser().equals(user) && userOnServer.getServer().getOwner().equals(user)) {
+                        servers.add(userOnServer.getServer());
+                    }
+                }
+            } catch (ClassNotFoundException _) {}
+
+            if (servers.isEmpty()) {
+                return;
+            } else {
+                System.out.printf("%s's owned servers:%n", user.getName());
+                for (Server server : servers) {
+                    System.out.println("\t*" + server);
+                }
+
+                String choice = getStringInput("Remove a server by typing its name, or type '$' to go back: ");
+
+                if (choice.equals("$")) {
+                    return;
+                }
+                for (Server server : servers) {
+                    if (server.getName().equals(choice)) {
+                        try {
+                            user.removeServer(choice);
+                            System.out.printf("Server %s removed successfully.%n", choice);
+                            return;
+                        } catch (ServerAppException e) {
+                            System.out.println(e.getMessage());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static void joinServer(User user) {
+        while (true) {
+            String choice = getStringInput("Enter the server name in the format 'ownername/servername' or type '$' to go back: ");
+
+            if (choice.equals("$")) {
+                return;
+            }
+
+            String[] parts = choice.split("/");
+            if (parts.length != 2) {
+                System.out.println("Invalid format. Please use 'ownername/servername'.");
+                continue;
+            }
+
+            String ownerName = parts[0];
+            String serverName = parts[1];
+            Server targetServer = null;
+
+            try {
+                for (UserOnServer userOnServer : ObjectPlus.getExtent(UserOnServer.class)) {
+                    Server server = userOnServer.getServer();
+                    if (server.getOwner().getName().equals(ownerName) && server.getName().equals(serverName)) {
+                        targetServer = server;
+                        break;
+                    }
+                }
+            } catch (ClassNotFoundException _) {}
+
+            if (targetServer == null) {
+                System.out.println("Server not found. Make sure you entered the correct format and the server exists.");
+            } else {
+                try {
+                    user.joinServer(targetServer);
+                    System.out.printf("Successfully joined server %s/%s.%n", ownerName, serverName);
+                    return;
+                } catch (ServerAppException e) {
+                    System.out.println(e.getMessage());
+                }
+            }
+        }
+    }
+
+    private static void leaveServer(User user) {
+        Set<Server> joinableServers = new LinkedHashSet<>();
+
+        try {
+            for (UserOnServer userOnServer : ObjectPlus.getExtent(UserOnServer.class)) {
+                if (userOnServer.getUser().equals(user) && !userOnServer.getServer().getOwner().equals(user)) {
+                    joinableServers.add(userOnServer.getServer());
+                }
+            }
+        } catch (ClassNotFoundException _) {}
+
+        if (joinableServers.isEmpty()) {
+            System.out.println("You are not a member of any servers that you do not own.");
+            return;
+        }
+
+        System.out.printf("%s's joinable servers:%n", user.getName());
+        for (Server server : joinableServers) {
+            System.out.println("\t*" + server);
+        }
+
+        while (true) {
+            String choice = getStringInput("Enter the server name to leave, or type '$' to go back: ");
+
+            if (choice.equals("$")) {
+                return;
+            }
+
+            for (Server server : joinableServers) {
+                if (server.getName().equals(choice)) {
+                    try {
+                        user.leaveServer(server);
+                        System.out.printf("Successfully left server %s.%n", choice);
+                        return;
+                    } catch (ServerAppException e) {
+                        System.out.println(e.getMessage());
+                    }
+                }
+            }
+
+            System.out.println("Server not found in your joined servers. Please try again.");
+        }
+    }
+
+
+
+    private static void goToUserFriendList(User user) {
+        Set<User> friends = new LinkedHashSet<>();
         try {
             for (Friendship friendship : ObjectPlus.getExtent(Friendship.class)) {
                 if (friendship.getRequester().equals(user)) {
@@ -226,17 +427,76 @@ public class Main {
                     friends.add(friendship.getRequester());
                 }
             }
-            if (friends.isEmpty()) {
-                System.out.println("No friends found.");
-            } else {
-                for (User friend : friends) {
-                    System.out.println(friend);
-                }
+        } catch (ClassNotFoundException _) {}
+
+        if (!friends.isEmpty()) {
+            System.out.printf("%s's friend list:%n", user.getName());
+            for (User friend : friends) {
+                System.out.println(friend);
             }
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } else {
+            System.out.printf("No friends for user %s found. Add at least one user to see them here.%n", user.getName());
+        }
+        while (true) {
+            System.out.println("1. Add a friend.");
+            System.out.println("2. Remove a friend.");
+            System.out.println("0. Go back");
+
+            int choice = getIntInput("Choose an option: ");
+
+            switch (choice) {
+                case 1:
+                    addFriend(user);
+                    break;
+                case 2:
+                    removeFriend(user);
+                    break;
+                case 0:
+                    return;
+                default:
+                    System.out.println("Invalid choice. Try again.");
+            }
         }
     }
+
+    private static void addFriend(User user) {
+        while (true) {
+            String choice = getStringInput("Add a friend by typing their name, or type '$' to go back: ");
+
+            if (choice.equals("$")) {
+                return;
+            } else {
+                try {
+                    user.addFriend(choice);
+                    System.out.printf("Friend %s added successfully.%n", choice);
+                    return;
+                } catch (ServerAppException e) {
+                    System.out.println(e.getMessage());
+                }
+            }
+        }
+    }
+
+    private static void removeFriend(User user) {
+        while (true) {
+            String choice = getStringInput("Remove a friend by typing their name, or type '$' to go back: ");
+
+            if (choice.equals("$")) {
+                return;
+            } else {
+                try {
+                    user.removeFriend(choice);
+                    System.out.printf("Friend %s removed successfully.%n", choice);
+                    return;
+                } catch (ClassNotFoundException e) {
+                    throw new RuntimeException(e);
+                } catch (ServerAppException e) {
+                    System.out.println(e.getMessage());
+                }
+            }
+        }
+    }
+
 
     private static void changeUserPassword(User user) {
         while (true) {
@@ -269,14 +529,14 @@ public class Main {
     }
 
     private static void handleServersData() {
-        System.out.println("\n--- Servers ---");
-
-        System.out.println("1. Select a server from list.");
-        System.out.println("2. See servers with more than N users.");
-        System.out.println("0. Back to Main Menu");
-
-        System.out.println("Available Servers:");
         while (true) {
+            System.out.println("\n--- Servers ---");
+
+            System.out.println("1. Select a server from list.");
+            System.out.println("2. See servers with more than N users.");
+            System.out.println("0. Back to Main Menu");
+
+
             int choice = getIntInput("Choose an option: ");
             switch (choice) {
                 case 1:
@@ -294,10 +554,10 @@ public class Main {
     }
 
     private static void seeServers() {
-        System.out.println("Available servers:");
-        List<Server> servers = null;
+        System.out.println(" ---Available servers:--- ");
+        Set<Server> servers = new LinkedHashSet<>();
         try {
-            servers = (List<Server>) ObjectPlus.getExtent(Server.class);
+            servers = (LinkedHashSet<Server>) ObjectPlus.getExtent(Server.class);
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
